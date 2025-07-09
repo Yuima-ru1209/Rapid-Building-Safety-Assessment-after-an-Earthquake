@@ -2,165 +2,227 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>調査結果確認（構造修正＋エリア表示）</title>
+  <title>調査結果確認（エリア判定付き）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <style>
     html, body { height: 100%; margin: 0; }
     #map { width: 100%; height: 100%; }
+
     .custom-div-icon div {
-      width: 14px; height: 14px;
-      border-radius: 50%; border: 2px solid #fff;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid #fff;
       box-shadow: 0 0 3px rgba(0,0,0,0.4);
     }
+
     #building-list {
-      position: absolute; top: 10px; right: 10px;
+      position: absolute;
+      top: 10px;
+      right: 10px;
       background: rgba(255,255,255,0.95);
-      padding: 10px; border-radius: 8px;
-      max-height: 80vh; overflow-y: auto;
-      z-index: 1000; font-size: 14px;
+      padding: 10px;
+      border-radius: 8px;
+      max-height: 80vh;
+      overflow-y: auto;
+      z-index: 1000;
+      font-size: 14px;
     }
+
     #building-list label {
-      display: block; margin-bottom: 6px; cursor: pointer;
+      display: block;
+      margin-bottom: 6px;
+      cursor: pointer;
+    }
+
+    /* ✅ ホームに戻るボタン（左下固定） */
+    #back-home {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      z-index: 2000;
+    }
+
+    #back-home button {
+      padding: 8px 14px;
+      font-size: 14px;
+      border: none;
+      background-color: #7f8c8d;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s;
+    }
+
+    #back-home button:hover {
+      background-color: #636e72;
     }
   </style>
 </head>
 <body>
 
+<!-- ✅ ホームボタンは #map より上に配置 -->
+<div id="back-home">
+  <button onclick="location.href='home.html'">🏠 ホームに戻る</button>
+</div>
+
 <div id="map"></div>
 <div id="building-list"><strong>建築物一覧</strong></div>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyAZ9VaCkHzzmYQOXu8pAAZrzGSFlaW00RM",
-  authDomain: "building-survey-support.firebaseapp.com",
-  projectId: "building-survey-support",
-  storageBucket: "building-survey-support.appspot.com",
-  messagingSenderId: "949437812769",
-  appId: "1:949437812769:web:example"
-};
-firebase.initializeApp(firebaseConfig);
+  const firebaseConfig = {
+    apiKey: "AIzaSyAZ9VaCkHzzmYQOXu8pAAZrzGSFlaW00RM",
+    authDomain: "building-survey-support.firebaseapp.com",
+    projectId: "building-survey-support",
+    storageBucket: "building-survey-support.appspot.com",
+    messagingSenderId: "949437812769",
+    appId: "1:949437812769:web:example"
+  };
+  firebase.initializeApp(firebaseConfig);
 
-firebase.auth().signInWithEmailAndPassword("demo01@example.com", "demo20240607")
-  .then(userCredential => {
-    console.log("ログイン成功 UID:", userCredential.user.uid);
-    loadSurveyData();
-    loadAreaData();
-  })
-  .catch(error => {
-    console.error("ログイン失敗:", error.message);
-    alert("ログインに失敗しました: " + error.message);
-  });
+  let map;
+  let areaPolygons = [];
 
-let map;
+  firebase.auth().signInWithEmailAndPassword("demo01@example.com", "demo20240607")
+    .then(() => {
+      initializeMap();
+      loadEditorMapData();
+      loadSurveyData();
+    })
+    .catch(error => {
+      console.error("ログイン失敗:", error.message);
+      alert("ログインに失敗しました: " + error.message);
+    });
 
-function loadSurveyData() {
-  const db = firebase.firestore();
-  map = L.map('map').setView([35.05, 136.68], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(map);
+  function initializeMap() {
+    map = L.map('map').setView([35.05, 136.68], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+  }
 
-  const structureTypes = ['RC', 'SteelFramed', 'Wooden'];
-  const markerMap = {};
-  const allMarkers = [];
-  const listContainer = document.getElementById('building-list');
+  function loadEditorMapData() {
+    const mapData = localStorage.getItem("mapData");
+    if (!mapData) {
+      console.warn("mapData が localStorage に存在しません");
+      return;
+    }
 
-  structureTypes.forEach(type => {
-    db.collection('emergency_risk_assessment')
-      .doc('guest_group')
-      .collection(type)
-      .get()
-      .then(docSnapshots => {
-        docSnapshots.forEach(doc => {
-          const d = doc.data();
-          console.log(`[${type}/${doc.id}] データ:`, d);
+    try {
+      const json = JSON.parse(mapData);
 
-          const lat = d.building_latitude;
-          const lng = d.building_longitude;
-          const address = d.building_address || '住所不明';
-          const name = d.building_name || doc.id;
-          const result = d.final_result || '未設定';
-
-          if (typeof lat === 'number' && typeof lng === 'number') {
-            const color = getColorByResult(result);
-            const marker = L.marker([lat, lng], { icon: getColorIcon(color) }).addTo(map);
-
-            marker.bindPopup(`
-              <strong>${name}</strong><br>
-              ${address}<br>
-              <b>調査結果:</b> <span style=\"color:${color}\">${result}</span>
-            `);
-
-            const id = `${type}_${doc.id}`;
-            markerMap[id] = marker;
-            allMarkers.push(marker);
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = true;
-            checkbox.dataset.id = id;
-            checkbox.onchange = (e) => {
-              const targetId = e.target.dataset.id;
-              if (e.target.checked) {
-                markerMap[targetId].addTo(map);
-              } else {
-                map.removeLayer(markerMap[targetId]);
-              }
-            };
-
-            const label = document.createElement('label');
-            label.appendChild(checkbox);
-            label.append(` ${name}`);
-            listContainer.appendChild(label);
-          }
-        });
-
-        if (allMarkers.length > 0) {
-          const group = L.featureGroup(allMarkers);
-          map.fitBounds(group.getBounds().pad(0.2));
-        }
-      });
-  });
-}
-
-function loadAreaData() {
-  fetch('./mapdata/mapdata.json')
-    .then(res => res.json())
-    .then(json => {
       json.areas.forEach(area => {
         const polygon = L.polygon(area.coords, {
           color: area.color || '#3388ff',
           fillOpacity: 0.3
         }).addTo(map);
-
         polygon.bindPopup(`<strong>${area.name}</strong>`);
+
+        const turfCoords = area.coords.map(([lat, lng]) => [lng, lat]);
+        areaPolygons.push({
+          name: area.name,
+          polygon: turf.polygon([turfCoords.concat([turfCoords[0]])])
+        });
       });
-    })
-    .catch(err => {
-      console.error("エリアデータの読み込み失敗:", err);
+    } catch (err) {
+      console.error("エリアデータ読み込みエラー:", err);
+    }
+  }
+
+  function loadSurveyData() {
+    const db = firebase.firestore();
+    const structureTypes = ['RC', 'SteelFramed', 'Wooden'];
+    const markerMap = {};
+    const allMarkers = [];
+    const listContainer = document.getElementById('building-list');
+
+    structureTypes.forEach(type => {
+      db.collection('emergency_risk_assessment')
+        .doc('guest_group')
+        .collection(type)
+        .get()
+        .then(docSnapshots => {
+          docSnapshots.forEach(doc => {
+            const d = doc.data();
+            const lat = d.building_latitude;
+            const lng = d.building_longitude;
+            const address = d.building_address || '住所不明';
+            const name = d.building_name || doc.id;
+            const result = d.final_result || '未設定';
+
+            if (typeof lat === 'number' && typeof lng === 'number') {
+              const color = getColorByResult(result);
+              const point = turf.point([lng, lat]);
+              let areaName = '（エリア外）';
+              for (const area of areaPolygons) {
+                if (turf.booleanPointInPolygon(point, area.polygon)) {
+                  areaName = area.name;
+                  break;
+                }
+              }
+
+              const marker = L.marker([lat, lng], { icon: getColorIcon(color) }).addTo(map);
+              marker.bindPopup(`
+                <strong>${name}</strong><br>
+                ${address}<br>
+                <b>調査結果:</b> <span style="color:${color}">${result}</span><br>
+                <b>エリア:</b> ${areaName}
+              `);
+
+              const id = `${type}_${doc.id}`;
+              markerMap[id] = marker;
+              allMarkers.push(marker);
+
+              const checkbox = document.createElement('input');
+              checkbox.type = 'checkbox';
+              checkbox.checked = true;
+              checkbox.dataset.id = id;
+              checkbox.onchange = (e) => {
+                const targetId = e.target.dataset.id;
+                if (e.target.checked) {
+                  markerMap[targetId].addTo(map);
+                } else {
+                  map.removeLayer(markerMap[targetId]);
+                }
+              };
+
+              const label = document.createElement('label');
+              label.appendChild(checkbox);
+              label.append(` ${name}`);
+              listContainer.appendChild(label);
+            }
+          });
+
+          if (allMarkers.length > 0) {
+            const group = L.featureGroup(allMarkers);
+            map.fitBounds(group.getBounds().pad(0.2));
+          }
+        });
     });
-}
+  }
 
-function getColorByResult(result) {
-  if (result.includes('緑')) return '#2ecc71';
-  if (result.includes('黄')) return '#f1c40f';
-  if (result.includes('赤')) return '#e74c3c';
-  return '#888';
-}
+  function getColorByResult(result) {
+    if (result.includes('緑')) return '#2ecc71';
+    if (result.includes('黄')) return '#f1c40f';
+    if (result.includes('赤')) return '#e74c3c';
+    return '#888';
+  }
 
-function getColorIcon(color) {
-  return L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style=\"background-color:${color}\"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
-  });
-}
+  function getColorIcon(color) {
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="background-color:${color}"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
+    });
+  }
 </script>
 
 </body>

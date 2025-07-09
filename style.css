@@ -106,3 +106,25 @@ html, body {
   font-size: 16px;
   cursor: pointer;
 }
+#back-home {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 2000;  /* マップより前面に */
+}
+
+#back-home button {
+  padding: 8px 14px;
+  font-size: 14px;
+  border: none;
+  background-color: #7f8c8d;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: background 0.3s;
+}
+
+#back-home button:hover {
+  background-color: #636e72;
+}

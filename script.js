@@ -4,19 +4,18 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 const drawnItems = new L.FeatureGroup();
-const pinLayerGroup = new L.LayerGroup();
 map.addLayer(drawnItems);
-map.addLayer(pinLayerGroup);
 
-let currentMode = 'pin';
-let isDrawing = false;
 let latestPolygon = null;
 
 const drawBtn = document.getElementById('draw-mode-btn');
-const pinBtn = document.getElementById('pin-mode-btn');
 const colorPicker = document.getElementById('color-picker');
 const colorButtons = document.querySelectorAll('#color-picker .colors button');
-const saveBtn = document.getElementById('save-btn');
+
+const saveLocalBtn = document.getElementById('save-localstorage-btn');
+const saveJsonBtn = document.getElementById('save-json-btn');
+const loadJsonBtn = document.getElementById('load-json-btn');
+const loadJsonInput = document.getElementById('load-json-input');
 
 const drawControl = new L.Control.Draw({
   draw: {
@@ -27,36 +26,17 @@ const drawControl = new L.Control.Draw({
     marker: false,
     circlemarker: false
   },
-  edit: {
-    featureGroup: drawnItems
-  }
+  edit: { featureGroup: drawnItems }
 });
 
 drawBtn.onclick = () => {
-  currentMode = 'draw';
-  isDrawing = false;
   map.addControl(drawControl);
   drawBtn.disabled = true;
-  pinBtn.disabled = false;
 };
-
-pinBtn.onclick = () => {
-  currentMode = 'pin';
-  isDrawing = false;
-  map.removeControl(drawControl);
-  drawBtn.disabled = false;
-  pinBtn.disabled = true;
-};
-
-pinBtn.disabled = true;
-
-map.on(L.Draw.Event.DRAWSTART, () => isDrawing = true);
-map.on(L.Draw.Event.DRAWSTOP, () => isDrawing = false);
 
 map.on(L.Draw.Event.CREATED, function (event) {
   const layer = event.layer;
   latestPolygon = layer;
-
   const name = prompt('このエリアに名前をつけてください：', '新しいエリア');
   if (name) {
     layer.feature = { properties: { name: name } };
@@ -66,53 +46,16 @@ map.on(L.Draw.Event.CREATED, function (event) {
       className: 'area-label'
     }).openTooltip();
   }
-
   drawnItems.addLayer(layer);
-
-  showColorPicker((color) => {
+  showColorPicker(color => {
     applyPolygonColor(layer, color);
     layer.customColor = color;
-  });
-});
-
-map.on('click', function (e) {
-  if (currentMode !== 'pin' || isDrawing) return;
-
-  const latlng = e.latlng;
-  const point = turf.point([latlng.lng, latlng.lat]);
-  let insideArea = null;
-
-  drawnItems.eachLayer(function (layer) {
-    const coords = layer.getLatLngs()[0].map(ll => [ll.lng, ll.lat]);
-    const polygon = turf.polygon([[...coords, coords[0]]]);
-    if (turf.booleanPointInPolygon(point, polygon)) {
-      insideArea = layer;
-    }
-  });
-
-  const marker = L.marker(latlng).addTo(pinLayerGroup);
-
-  let popupContent = insideArea
-    ? 'このピンはエリア内です。'
-    : 'このピンはどのエリアにも属していません。';
-
-  popupContent += `<br><button class="delete-pin-btn">🗑 削除</button>`;
-  marker.bindPopup(popupContent).openPopup();
-
-  marker.on('popupopen', function () {
-    const btn = document.querySelector('.delete-pin-btn');
-    if (btn) {
-      btn.onclick = () => {
-        pinLayerGroup.removeLayer(marker);
-      };
-    }
   });
 });
 
 drawnItems.on('click', function (e) {
   const layer = e.layer;
   latestPolygon = layer;
-
   const currentName = layer.feature?.properties?.name || '';
   const newName = prompt('このエリアの名前を変更します：', currentName);
   if (newName) {
@@ -124,24 +67,18 @@ drawnItems.on('click', function (e) {
       className: 'area-label'
     }).openTooltip();
   }
-
-  showColorPicker((color) => {
+  showColorPicker(color => {
     applyPolygonColor(layer, color);
     layer.customColor = color;
   });
 });
 
 function applyPolygonColor(layer, color) {
-  layer.setStyle({
-    color: color,
-    fillColor: color,
-    fillOpacity: 0.4
-  });
+  layer.setStyle({ color, fillColor: color, fillOpacity: 0.4 });
 }
 
 function showColorPicker(callback) {
   colorPicker.classList.remove('hidden');
-
   const onColorSelect = (e) => {
     const color = e.target.dataset.color;
     if (color && latestPolygon) {
@@ -150,39 +87,78 @@ function showColorPicker(callback) {
       colorButtons.forEach(btn => btn.removeEventListener('click', onColorSelect));
     }
   };
-
   colorButtons.forEach(btn => btn.addEventListener('click', onColorSelect));
 }
 
-// 保存ボタン処理（ダウンロード用・クライアント側）
-saveBtn.onclick = () => {
-  const data = {
-    areas: [],
-    pins: []
-  };
-
+function collectMapData() {
+  const data = { areas: [] };
   drawnItems.eachLayer(layer => {
     const name = layer.feature?.properties?.name || '未命名';
     const color = layer.customColor || '#666';
     const coords = layer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
     data.areas.push({ name, color, coords });
   });
+  return data;
+}
 
-  pinLayerGroup.eachLayer(marker => {
-    const latlng = marker.getLatLng();
-    data.pins.push({
-      lat: latlng.lat,
-      lng: latlng.lng
-    });
-  });
+saveLocalBtn.onclick = () => {
+  const data = collectMapData();
+  localStorage.setItem("mapData", JSON.stringify(data));
+  alert("エリアを localStorage に保存しました！");
+};
 
+saveJsonBtn.onclick = () => {
+  const data = collectMapData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement('a');
   a.href = url;
   a.download = 'mapdata.json';
   a.click();
-
   URL.revokeObjectURL(url);
 };
+
+loadJsonBtn.onclick = () => {
+  loadJsonInput.click();
+};
+
+loadJsonInput.addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (event) {
+    try {
+      const data = JSON.parse(event.target.result);
+      if (!Array.isArray(data.areas)) {
+        alert("不正なファイル形式です（'areas' が見つかりません）");
+        return;
+      }
+
+      // 保存
+      localStorage.setItem("mapData", JSON.stringify(data));
+      alert("エリアを localStorage に保存しました");
+
+      // 表示
+      drawnItems.clearLayers();
+      data.areas.forEach(area => {
+        const polygon = L.polygon(area.coords, {
+          color: area.color || '#3388ff',
+          fillColor: area.color || '#3388ff',
+          fillOpacity: 0.4
+        }).addTo(drawnItems);
+        polygon.feature = { properties: { name: area.name } };
+        polygon.customColor = area.color;
+        polygon.bindTooltip(area.name, {
+          permanent: true,
+          direction: 'center',
+          className: 'area-label'
+        }).openTooltip();
+      });
+
+    } catch (err) {
+      alert("ファイルの読み込みに失敗しました。");
+    }
+  };
+  reader.readAsText(file);
+});
