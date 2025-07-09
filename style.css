@@ -1,0 +1,108 @@
+/* 全体共通レイアウト */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+/* モード切り替えボタン */
+#mode-controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px;
+  border-radius: 6px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+}
+
+#mode-controls button {
+  margin: 3px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* 保存ボタン */
+#save-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px;
+  border-radius: 6px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+}
+
+#save-controls button {
+  margin: 3px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* エリアラベル */
+.leaflet-tooltip.area-label {
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid #666;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 13px;
+  color: #000;
+}
+
+/* 色選択パネル */
+#color-picker {
+  position: absolute;
+  z-index: 1100;
+  top: 80px;
+  left: 10px;
+  background: white;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+}
+
+#color-picker p {
+  margin: 0 0 6px 0;
+}
+
+#color-picker .colors button {
+  width: 30px;
+  height: 30px;
+  margin: 4px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none;
+}
+
+/* タイトル・ホーム画面用 */
+.centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  text-align: center;
+}
+
+.centered button {
+  margin: 12px;
+  padding: 12px 24px;
+  font-size: 16px;
+  cursor: pointer;
+}

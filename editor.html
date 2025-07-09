@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>調査エリア作成 - 調査マップアプリ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- モード切り替え -->
+  <div id="mode-controls">
+    <button id="draw-mode-btn">エリア作成モード</button>
+    <button id="pin-mode-btn">ピン配置モード</button>
+  </div>
+
+  <!-- 保存ボタン -->
+  <div id="save-controls">
+    <button id="save-btn">💾 保存</button>
+  </div>
+
+  <!-- 色選択パネル -->
+  <div id="color-picker" class="hidden">
+    <p>エリアの色を選んでください:</p>
+    <div class="colors">
+      <button data-color="#e74c3c" style="background:#e74c3c"></button>
+      <button data-color="#3498db" style="background:#3498db"></button>
+      <button data-color="#2ecc71" style="background:#2ecc71"></button>
+      <button data-color="#f1c40f" style="background:#f1c40f"></button>
+      <button data-color="#9b59b6" style="background:#9b59b6"></button>
+      <button data-color="#e67e22" style="background:#e67e22"></button>
+    </div>
+  </div>
+
+  <!-- 地図表示 -->
+  <div id="map"></div>
+
+  <!-- スクリプト読み込み -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
