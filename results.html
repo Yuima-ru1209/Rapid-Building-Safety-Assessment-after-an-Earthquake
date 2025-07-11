@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>調査結果確認（エリア判定付き）</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>調査結果確認（フィルタ付き）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
@@ -13,70 +13,66 @@
   <style>
     html, body { height: 100%; margin: 0; }
     #map { width: 100%; height: 100%; }
-
     .custom-div-icon div {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      box-shadow: 0 0 3px rgba(0,0,0,0.4);
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,0.4);
     }
-
     #building-list {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(255,255,255,0.95);
-      padding: 10px;
-      border-radius: 8px;
-      max-height: 80vh;
-      overflow-y: auto;
-      z-index: 1000;
-      font-size: 14px;
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(255,255,255,0.95); padding: 10px;
+      border-radius: 8px; max-height: 85vh; overflow-y: auto;
+      z-index: 1000; font-size: 14px;
     }
-
-    #building-list label {
-      display: block;
-      margin-bottom: 6px;
-      cursor: pointer;
+    #building-list label { display: block; margin-bottom: 6px; cursor: pointer; }
+    .area-toggle { margin-bottom: 6px; }
+    .search-button {
+      margin-left: 6px; padding: 2px 6px; font-size: 12px;
+      border: none; background-color: #3498db;
+      color: white; border-radius: 4px; cursor: pointer;
     }
-
-    /* ✅ ホームに戻るボタン（左下固定） */
+    .search-button:hover { background-color: #2980b9; }
     #back-home {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      z-index: 2000;
+      position: absolute; bottom: 10px; left: 10px; z-index: 2000;
     }
-
     #back-home button {
-      padding: 8px 14px;
-      font-size: 14px;
-      border: none;
-      background-color: #7f8c8d;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      transition: background 0.3s;
+      padding: 8px 14px; font-size: 14px; border: none;
+      background-color: #7f8c8d; color: white;
+      border-radius: 6px; cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: background 0.3s;
     }
-
-    #back-home button:hover {
-      background-color: #636e72;
-    }
+    #back-home button:hover { background-color: #636e72; }
+    .filter-group { margin-bottom: 10px; }
   </style>
 </head>
 <body>
-
-<!-- ✅ ホームボタンは #map より上に配置 -->
 <div id="back-home">
   <button onclick="location.href='home.html'">🏠 ホームに戻る</button>
 </div>
-
 <div id="map"></div>
-<div id="building-list"><strong>建築物一覧</strong></div>
+<div id="building-list">
+  <div class="filter-group">
+    <strong>表示フィルタ</strong><br/>
+    <label><input type="checkbox" class="result-filter" data-color="red" checked> 危険（赤）</label>
+    <label><input type="checkbox" class="result-filter" data-color="yellow" checked> 要注意（黄）</label>
+    <label><input type="checkbox" class="result-filter" data-color="green" checked> 調査済み（緑）</label>
+    <label><input type="checkbox" class="result-filter" data-color="gray" checked> 未設定</label>
+  </div>
+  <div>
+    <strong style="cursor:pointer;" onclick="toggleSection('building-items')">▼ 建築物一覧</strong>
+    <div id="building-items" style="margin-bottom: 10px;"></div>
+  </div>
+  <div>
+    <strong style="cursor:pointer;" onclick="toggleSection('area-toggle-list')">▼ エリア一覧</strong>
+    <div id="area-toggle-list" style="margin-top:4px;"></div>
+  </div>
+</div>
 
 <script>
+  function toggleSection(id) {
+    const el = document.getElementById(id);
+    el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+  }
+
   const firebaseConfig = {
     apiKey: "AIzaSyAZ9VaCkHzzmYQOXu8pAAZrzGSFlaW00RM",
     authDomain: "building-survey-support.firebaseapp.com",
@@ -89,16 +85,14 @@
 
   let map;
   let areaPolygons = [];
+  const markerMap = {};  // id => marker
+  const markerMeta = {}; // id => { color }
 
   firebase.auth().signInWithEmailAndPassword("demo01@example.com", "demo20240607")
     .then(() => {
       initializeMap();
       loadEditorMapData();
       loadSurveyData();
-    })
-    .catch(error => {
-      console.error("ログイン失敗:", error.message);
-      alert("ログインに失敗しました: " + error.message);
     });
 
   function initializeMap() {
@@ -110,94 +104,124 @@
 
   function loadEditorMapData() {
     const mapData = localStorage.getItem("mapData");
-    if (!mapData) {
-      console.warn("mapData が localStorage に存在しません");
-      return;
-    }
-
-    try {
-      const json = JSON.parse(mapData);
-
-      json.areas.forEach(area => {
-        const polygon = L.polygon(area.coords, {
-          color: area.color || '#3388ff',
-          fillOpacity: 0.3
-        }).addTo(map);
-        polygon.bindPopup(`<strong>${area.name}</strong>`);
-
-        const turfCoords = area.coords.map(([lat, lng]) => [lng, lat]);
-        areaPolygons.push({
-          name: area.name,
-          polygon: turf.polygon([turfCoords.concat([turfCoords[0]])])
-        });
+    if (!mapData) return;
+    const json = JSON.parse(mapData);
+    const toggleList = document.getElementById("area-toggle-list");
+    json.areas.forEach(area => {
+      const polygon = L.polygon(area.coords, {
+        color: area.color || '#3388ff',
+        fillOpacity: 0.3
+      }).addTo(map);
+      polygon.bindPopup(`<strong>${area.name}</strong>`);
+      const turfCoords = area.coords.map(([lat, lng]) => [lng, lat]);
+      areaPolygons.push({
+        name: area.name,
+        polygon: turf.polygon([turfCoords.concat([turfCoords[0]])]),
+        stats: { total: 0, 赤: 0, 黄: 0, 緑: 0, 未設定: 0 },
+        leafletPolygon: polygon
       });
-    } catch (err) {
-      console.error("エリアデータ読み込みエラー:", err);
-    }
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.onchange = () => {
+        polygon.setStyle({ opacity: cb.checked ? 1 : 0, fillOpacity: cb.checked ? 0.3 : 0 });
+      };
+      const label = document.createElement('label');
+      label.className = 'area-toggle';
+      label.appendChild(cb);
+      label.append(` ${area.name}`);
+      const searchBtn = document.createElement('button');
+      searchBtn.className = 'search-button';
+      searchBtn.textContent = '🔍';
+      searchBtn.onclick = () => {
+        const stats = areaPolygons.find(a => a.name === area.name).stats;
+        alert(`📊 ${area.name} の件数
+危険（赤）: ${stats.赤}
+要注意（黄）: ${stats.黄}
+調査済み（緑）: ${stats.緑}
+未設定: ${stats['未設定']}
+合計: ${stats.total}`);
+      };
+      label.appendChild(searchBtn);
+      toggleList.appendChild(label);
+    });
   }
 
   function loadSurveyData() {
     const db = firebase.firestore();
     const structureTypes = ['RC', 'SteelFramed', 'Wooden'];
-    const markerMap = {};
+    const buildingContainer = document.getElementById('building-items');
     const allMarkers = [];
-    const listContainer = document.getElementById('building-list');
 
     structureTypes.forEach(type => {
       db.collection('emergency_risk_assessment')
-        .doc('guest_group')
-        .collection(type)
-        .get()
-        .then(docSnapshots => {
-          docSnapshots.forEach(doc => {
+        .doc('guest_group').collection(type)
+        .get().then(snaps => {
+          snaps.forEach(doc => {
             const d = doc.data();
             const lat = d.building_latitude;
             const lng = d.building_longitude;
-            const address = d.building_address || '住所不明';
-            const name = d.building_name || doc.id;
+            const name = d.building_no || doc.id;
             const result = d.final_result || '未設定';
+            if (typeof lat !== 'number' || typeof lng !== 'number') return;
+            const point = turf.point([lng, lat]);
+            const matched = [];
+            const resultKey = ['赤', '黄', '緑'].find(k => result.includes(k)) || '未設定';
 
-            if (typeof lat === 'number' && typeof lng === 'number') {
-              const color = getColorByResult(result);
-              const point = turf.point([lng, lat]);
-              let areaName = '（エリア外）';
-              for (const area of areaPolygons) {
-                if (turf.booleanPointInPolygon(point, area.polygon)) {
-                  areaName = area.name;
-                  break;
-                }
+            areaPolygons.forEach(area => {
+              if (turf.booleanPointInPolygon(point, area.polygon)) {
+                matched.push(area.name);
+                area.stats[resultKey]++;
+                area.stats.total++;
               }
+            });
+            if (matched.length === 0) matched.push('（エリア外）');
 
-              const marker = L.marker([lat, lng], { icon: getColorIcon(color) }).addTo(map);
-              marker.bindPopup(`
-                <strong>${name}</strong><br>
-                ${address}<br>
-                <b>調査結果:</b> <span style="color:${color}">${result}</span><br>
-                <b>エリア:</b> ${areaName}
-              `);
+            const color = getColorByResult(result);
+            const id = `${type}_${doc.id}`;
+            const marker = L.marker([lat, lng], { icon: getColorIcon(color) }).addTo(map);
+            marker.bindPopup(`
+              <strong>整理番号: ${name}</strong><br>
+              <b>調査結果:</b> <span style="color:${color}">${convertResultText(result)}</span><br>
+              <b>エリア:</b> ${matched.join('、')}
+            `);
+            markerMap[id] = marker;
+            markerMeta[id] = { colorCode: getColorCode(result) };
+            allMarkers.push(marker);
 
-              const id = `${type}_${doc.id}`;
-              markerMap[id] = marker;
-              allMarkers.push(marker);
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.dataset.id = id;
+            cb.onchange = (e) => {
+              const tid = e.target.dataset.id;
+              if (e.target.checked) {
+                markerMap[tid].addTo(map);
+              } else {
+                map.removeLayer(markerMap[tid]);
+              }
+            };
+            const label = document.createElement('label');
+            label.appendChild(cb);
+            label.append(` ${name}`);
+            buildingContainer.appendChild(label);
+          });
 
-              const checkbox = document.createElement('input');
-              checkbox.type = 'checkbox';
-              checkbox.checked = true;
-              checkbox.dataset.id = id;
-              checkbox.onchange = (e) => {
-                const targetId = e.target.dataset.id;
-                if (e.target.checked) {
-                  markerMap[targetId].addTo(map);
+          // 結果別フィルタ
+          document.querySelectorAll('.result-filter').forEach(filter => {
+            filter.addEventListener('change', () => {
+              const visibleColors = Array.from(document.querySelectorAll('.result-filter:checked'))
+                .map(el => el.dataset.color);
+              Object.entries(markerMap).forEach(([id, marker]) => {
+                const color = markerMeta[id].colorCode;
+                if (visibleColors.includes(color)) {
+                  marker.addTo(map);
                 } else {
-                  map.removeLayer(markerMap[targetId]);
+                  map.removeLayer(marker);
                 }
-              };
-
-              const label = document.createElement('label');
-              label.appendChild(checkbox);
-              label.append(` ${name}`);
-              listContainer.appendChild(label);
-            }
+              });
+            });
           });
 
           if (allMarkers.length > 0) {
@@ -215,6 +239,20 @@
     return '#888';
   }
 
+  function getColorCode(result) {
+    if (result.includes('赤')) return 'red';
+    if (result.includes('黄')) return 'yellow';
+    if (result.includes('緑')) return 'green';
+    return 'gray';
+  }
+
+  function convertResultText(result) {
+    if (result.includes('赤')) return '危険（赤）';
+    if (result.includes('黄')) return '要注意（黄）';
+    if (result.includes('緑')) return '調査済み（緑）';
+    return '未設定';
+  }
+
   function getColorIcon(color) {
     return L.divIcon({
       className: 'custom-div-icon',
@@ -224,6 +262,5 @@
     });
   }
 </script>
-
 </body>
 </html>
