@@ -1,4 +1,3 @@
-/* 全体共通レイアウト */
 html, body {
   height: 100%;
   margin: 0;
@@ -90,27 +89,11 @@ html, body {
   display: none;
 }
 
-/* タイトル・ホーム画面用 */
-.centered {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  text-align: center;
-}
-
-.centered button {
-  margin: 12px;
-  padding: 12px 24px;
-  font-size: 16px;
-  cursor: pointer;
-}
 #back-home {
   position: absolute;
   bottom: 10px;
   left: 10px;
-  z-index: 2000;  /* マップより前面に */
+  z-index: 2000;
 }
 
 #back-home button {
@@ -126,5 +109,152 @@ html, body {
 }
 
 #back-home button:hover {
+  background-color: #2980b9;
+}
+
+
+/* マップ上の丸いピンアイコン */
+.custom-div-icon div {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 3px rgba(0,0,0,0.4);
+}
+
+/* 調査結果のフィルタ／建物リスト／エリアリスト */
+#building-list {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.95);
+  padding: 10px;
+  border-radius: 8px;
+  max-height: 85vh;
+  overflow-y: auto;
+  z-index: 1000;
+  font-size: 14px;
+  width: 320px; 
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+#building-list label {
+  display: block;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.area-toggle {
+  margin-bottom: 6px;
+}
+
+.search-button {
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 12px;
+  border: none;
   background-color: #3498db;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.search-button:hover {
+  background-color: #2980b9;
+}
+
+/* ホームに戻るボタン */
+#back-home {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 2000;
+}
+
+#back-home button {
+  padding: 8px 14px;
+  font-size: 14px;
+  border: none;
+  background-color: #7f8c8d;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: background 0.3s;
+}
+
+#back-home button:hover {
+  background-color: #636e72;
+}
+
+/* 情報パネル本体 */
+#info-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 360px;
+  background: white;
+  padding: 14px 16px 16px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  z-index: 1500;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+#info-panel.hidden {
+  display: none;
+}
+
+/* 閉じるボタン */
+#close-info-panel {
+  float: right;
+  background: #ccc;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+/* テキスト部分 */
+#info-text {
+  margin-bottom: 10px;
+}
+
+/* 画像の表示設定 */
+#info-image {
+  width: 100%;
+  border-radius: 6px;
+  margin: 0 auto;
+  display: block;
+  transition: transform 0.3s ease;
+  transform-origin: center;
+}
+
+/* ズームボタンの配置とデザイン */
+#zoom-controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-bottom: 6px;
+}
+
+#zoom-controls button {
+  padding: 6px 14px;
+  font-size: 16px;
+  border: none;
+  background-color: #3498db;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+#zoom-controls button:hover {
+  background-color: #2980b9;
 }
