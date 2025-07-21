@@ -294,6 +294,7 @@
               markerMeta[id] = { colorCode: getColorCode(result) };
               allMarkers.push(marker);
 
+              // 🔽 画像表示処理
               marker.on('click', () => {
                 document.getElementById('info-panel').classList.remove('hidden');
                 document.getElementById('info-name').textContent = name;
@@ -302,8 +303,21 @@
                 zoomScale = 1;
                 document.getElementById('info-image').style.transform = 'scale(1)';
 
-                if (name === "31-5") {
-                  document.getElementById('info-image').src = "image/sample.jpg";
+                const imageMap = {
+                  "11107": "image/sample01.jpg",
+                  "test01": "image/sample02.jpg",
+                  "1": "image/sample.jpg",
+                  "test": "image/sample.jpg",
+                  "31-5": "image/sample.jpg",
+                  "00000001": "image/sample.jpg",
+                  "125": "image/sample.jpg",
+                  "18": "image/sample.jpg",
+                  "1-1": "image/sample.jpg",
+                  "サンプル": "image/sample.jpg"
+                };
+
+                if (imageMap[name]) {
+                  document.getElementById('info-image').src = imageMap[name];
                   document.getElementById('info-image').style.display = "block";
                 } else {
                   document.getElementById('info-image').style.display = "none";
