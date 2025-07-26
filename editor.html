@@ -5,7 +5,7 @@
   <title>エリア編集 - 調査マップアプリ</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style-editor.css" />  <!-- editor専用CSS -->
 </head>
 <body>
 
@@ -37,13 +37,12 @@
 
   <div id="map"></div>
 
+  <div id="back-home">
+    <button onclick="location.href='home.html'">🏠 ホームに戻る</button>
+  </div>
+
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-  <script src="script.js"></script>
-<div id="back-home">
-  <button onclick="location.href='home.html'">🏠 ホームに戻る</button>
-</div>
-
-
+  <script src="script-editor.js"></script>   <!-- editor専用JS -->
 </body>
 </html>
